@@ -120,6 +120,7 @@ def create_model(
                 jit=jit,
             )
             state_dict = model_pre.state_dict()
+            print("The state dict of model", state_dict)
 
             # to always output dict even if it is clip
             if output_dict and hasattr(model_pre, "output_dict"):
@@ -158,7 +159,7 @@ def create_model(
             if output_dict and hasattr(model, "output_dict"):
                 model.output_dict = True
     else:
-        # print('here')
+        print('here')
         model_cfg = model_cfg or get_model_config(model_name)
         if model_cfg is not None:
             print(f'Loaded {model_name} model config.')
