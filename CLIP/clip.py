@@ -107,6 +107,7 @@ def create_model(
     if pretrained and pretrained.lower() == 'openai':
         logging.info(f'Loading pretrained {model_name} from OpenAI.')
         model_cfg = model_cfg or get_model_config(model_name)
+        print('Configuration of CLIP mode',model_cfg)
         # print(model_cfg['vision_cfg'])
         if model_cfg['vision_cfg']['image_size'] != img_size:
             model_cfg['vision_cfg']['image_size'] = img_size
