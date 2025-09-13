@@ -223,7 +223,7 @@ class CLIP_LoRA_Implanted(nn.Module):
         # Final processing
         x = x.permute(1, 0, 2)  # (batch, seq_len, dim)
         
-        # Ensure patch tokens have correct shape [seq_len, batch, bottleneck_dim]
+        # Process patch tokens - remove warning prints for training
         processed_seg_tokens = []
         processed_det_tokens = []
         
@@ -231,17 +231,15 @@ class CLIP_LoRA_Implanted(nn.Module):
             seg_token = seg_token.permute(1, 0, 2)  # [batch, seq_len, dim]
             det_token = det_token.permute(1, 0, 2)  # [batch, seq_len, dim]
             
-            # Ensure the last dimension is bottleneck_dim (768)
+            # Ensure the last dimension is bottleneck_dim (768) - silent correction
             if seg_token.shape[-1] != self.adapter_config.get('bottleneck_dim', 768):
-                print(f"Warning: seg_token shape {seg_token.shape} doesn't match expected bottleneck_dim")
-                # Add a projection layer if needed
+                # Add a projection layer if needed (silent)
                 if not hasattr(self, 'emergency_seg_proj'):
                     self.emergency_seg_proj = nn.Linear(seg_token.shape[-1], self.adapter_config.get('bottleneck_dim', 768)).to(seg_token.device)
                 seg_token = self.emergency_seg_proj(seg_token)
             
             if det_token.shape[-1] != self.adapter_config.get('bottleneck_dim', 768):
-                print(f"Warning: det_token shape {det_token.shape} doesn't match expected bottleneck_dim")
-                # Add a projection layer if needed
+                # Add a projection layer if needed (silent)
                 if not hasattr(self, 'emergency_det_proj'):
                     self.emergency_det_proj = nn.Linear(det_token.shape[-1], self.adapter_config.get('bottleneck_dim', 768)).to(det_token.device)
                 det_token = self.emergency_det_proj(det_token)
