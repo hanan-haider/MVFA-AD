@@ -222,8 +222,35 @@ class CLIP_LoRA_Implanted(nn.Module):
         
         # Final processing
         x = x.permute(1, 0, 2)  # (batch, seq_len, dim)
-        seg_patch_tokens = [token.permute(1, 0, 2) for token in seg_patch_tokens]
-        det_patch_tokens = [token.permute(1, 0, 2) for token in det_patch_tokens]
+        
+        # Ensure patch tokens have correct shape [seq_len, batch, bottleneck_dim]
+        processed_seg_tokens = []
+        processed_det_tokens = []
+        
+        for seg_token, det_token in zip(seg_patch_tokens, det_patch_tokens):
+            seg_token = seg_token.permute(1, 0, 2)  # [batch, seq_len, dim]
+            det_token = det_token.permute(1, 0, 2)  # [batch, seq_len, dim]
+            
+            # Ensure the last dimension is bottleneck_dim (768)
+            if seg_token.shape[-1] != self.adapter_config.get('bottleneck_dim', 768):
+                print(f"Warning: seg_token shape {seg_token.shape} doesn't match expected bottleneck_dim")
+                # Add a projection layer if needed
+                if not hasattr(self, 'emergency_seg_proj'):
+                    self.emergency_seg_proj = nn.Linear(seg_token.shape[-1], self.adapter_config.get('bottleneck_dim', 768)).to(seg_token.device)
+                seg_token = self.emergency_seg_proj(seg_token)
+            
+            if det_token.shape[-1] != self.adapter_config.get('bottleneck_dim', 768):
+                print(f"Warning: det_token shape {det_token.shape} doesn't match expected bottleneck_dim")
+                # Add a projection layer if needed
+                if not hasattr(self, 'emergency_det_proj'):
+                    self.emergency_det_proj = nn.Linear(det_token.shape[-1], self.adapter_config.get('bottleneck_dim', 768)).to(det_token.device)
+                det_token = self.emergency_det_proj(det_token)
+            
+            processed_seg_tokens.append(seg_token)
+            processed_det_tokens.append(det_token)
+        
+        seg_patch_tokens = processed_seg_tokens
+        det_patch_tokens = processed_det_tokens
         
         pooled, tokens = self.image_encoder._global_pool(x)
         pooled = self.image_encoder.ln_post(pooled)
