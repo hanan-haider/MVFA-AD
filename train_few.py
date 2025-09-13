@@ -11,7 +11,7 @@ from scipy.ndimage import gaussian_filter
 from dataset.medical_few import MedDataset
 from CLIP.clip import create_model
 from CLIP.tokenizer import tokenize
-from CLIP.adapter import CLIP_Inplanted
+from CLIP.adapter import CLIP_LoRA_Implanted
 from PIL import Image
 from sklearn.metrics import roc_auc_score, precision_recall_curve, pairwise
 from loss import FocalLoss, BinaryDiceLoss
