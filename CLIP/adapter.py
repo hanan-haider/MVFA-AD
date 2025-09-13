@@ -286,7 +286,8 @@ def create_efficient_lora_model(clip_model, features=[6, 12, 18, 24]):
         'alpha': 8,
         'dropout': 0.1,
         'use_multi_scale': False,
-        'use_cross_attention': False
+        'use_cross_attention': False,
+        'bottleneck_dim': 768          # Match text_features dimension
     }
     return CLIP_LoRA_Implanted(clip_model, features, adapter_config)
 
@@ -298,6 +299,7 @@ def create_multiscale_lora_model(clip_model, features=[6, 12, 18, 24]):
         'dropout': 0.1,
         'use_multi_scale': True,
         'multi_scale_ranks': [4, 8, 16, 32],
-        'use_cross_attention': True
+        'use_cross_attention': True,
+        'bottleneck_dim': 768          # Match text_features dimension
     }
     return CLIP_LoRA_Implanted(clip_model, features, adapter_config)
