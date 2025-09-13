@@ -120,7 +120,7 @@ def create_model(
                 jit=jit,
             )
             state_dict = model_pre.state_dict()
-            print("The state dict of model", state_dict)
+         
 
             # to always output dict even if it is clip
             if output_dict and hasattr(model_pre, "output_dict"):
