@@ -209,20 +209,38 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
             _, seg_patch_tokens, det_patch_tokens = model(image)
             seg_patch_tokens = [p[0, 1:, :] for p in seg_patch_tokens]
             det_patch_tokens = [p[0, 1:, :] for p in det_patch_tokens]
-                        # 🔎 Added print statements here
+            # 🔎 Added print statements here
             print("\n--- seg_patch_tokens shapes ---")
             total_seg = 0
+            total_seg_layers = len(seg_patch_tokens)
             for idx, p in enumerate(seg_patch_tokens):
-                print(f"Layer {idx}: {p.shape}, elements = {p.numel()}")
-                total_seg += p.numel()
-            print("Total seg_patch_tokens elements across all layers:", total_seg)
+                if idx % 4 == 0 or idx == total_seg_layers - 1:  # Print every 4th layer and the last layer
+                    print(f"Layer {idx}: {p.shape}, elements = {p.numel()}")
+            total_seg += p.numel()
+            print(f"Total layers: {total_seg_layers}")
+            print(f"Average per layer: {total_seg // total_seg_layers} elements")
+            print(f"Total seg_patch_tokens elements across all layers: {total_seg}")
 
-            print("\n--- det_patch_tokens shapes ---")
             total_det = 0
+            print("\n--- det_patch_tokens shapes ---")
+            total_det_layers = len(det_patch_tokens)
             for idx, p in enumerate(det_patch_tokens):
-                print(f"Layer {idx}: {p.shape}, elements = {p.numel()}")
+                if idx % 4 == 0 or idx == total_det_layers - 1:  # Print every 4th layer and the last layer
+                    print(f"Layer {idx}: {p.shape}, elements = {p.numel()}")
                 total_det += p.numel()
-            print("Total det_patch_tokens elements across all layers:", total_det)
+            print(f"Total layers: {total_det_layers}")
+            print(f"Total det_patch_tokens elements across all layers: {total_det}")
+            print(f"Average per layer: {total_det // total_det_layers} elements")
+
+            # Additional summary comparison
+            print("\n--- Summary Comparison ---")
+            print(f"Total layers (seg vs det): {total_seg_layers} vs {total_det_layers}")
+            print(f"Total elements (seg vs det): {total_seg} vs {total_det}")
+            print(f"Ratio (seg/det): {total_seg/total_det:.3f}" if total_det > 0 else "Cannot compute ratio")
+            
+            
+            
+
 
             if CLASS_INDEX[args.obj] > 0:
 
