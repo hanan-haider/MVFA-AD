@@ -188,7 +188,10 @@ def main():
                 torch.save({'seg_adapters': model.seg_adapters.state_dict(),
                             'det_adapters': model.det_adapters.state_dict()}, 
                             ckp_path)
-          
+
+
+
+
 def test(args, model, test_loader, text_features, seg_mem_features, det_mem_features):
     gt_list = []
     gt_mask_list = []
@@ -201,23 +204,6 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
 
     for (image, y, mask) in tqdm(test_loader):
         image = image.to(device)
-        
-        # Ensure mask is the right shape and size
-        # Handle different possible mask shapes
-        if len(mask.shape) == 2:  # (H, W)
-            mask = mask.unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
-        elif len(mask.shape) == 3:  # (B, H, W) or (1, H, W)
-            mask = mask.unsqueeze(1)  # (B, 1, H, W)
-        # If already (B, C, H, W), leave as is
-        
-        # Resize to consistent size
-        mask = F.interpolate(mask.float(), 
-                            size=(args.img_size, args.img_size), 
-                            mode='nearest')
-        
-        # Squeeze to remove batch and channel dims for processing
-        mask = mask.squeeze()
-        
         mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
 
         with torch.no_grad(), torch.cuda.amp.autocast():
@@ -278,29 +264,14 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
                     anomaly_score += anomaly_map.mean()
                 det_image_scores_zero.append(anomaly_score.cpu().numpy())
 
-            # Convert to numpy and ensure consistent shape
-            mask_np = mask.cpu().detach().numpy()
             
-            # Force to 2D by squeezing all extra dimensions
-            while len(mask_np.shape) > 2:
-                mask_np = mask_np.squeeze()
-            
-            # Now mask_np should be 2D. Verify and resize if needed.
-            if mask_np.shape != (args.img_size, args.img_size):
-                # Use cv2 for reliable resizing
-                import cv2
-                mask_np = cv2.resize(mask_np, (args.img_size, args.img_size), 
-                                    interpolation=cv2.INTER_NEAREST)
-            
-            gt_mask_list.append(mask_np)
+            gt_mask_list.append(mask.squeeze().cpu().detach().numpy())
             gt_list.extend(y.cpu().detach().numpy())
             
 
     gt_list = np.array(gt_list)
-    
-    # Now all masks should have shape (args.img_size, args.img_size)
-    gt_mask_list = np.stack(gt_mask_list, axis=0)
-    gt_mask_list = (gt_mask_list > 0).astype(np.int_)
+    gt_mask_list = np.asarray(gt_mask_list)
+    gt_mask_list = (gt_mask_list>0).astype(np.int_)
 
 
     if CLASS_INDEX[args.obj] > 0:
