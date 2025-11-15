@@ -203,6 +203,13 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
 
     for (image, y, mask) in tqdm(test_loader):
         image = image.to(device)
+        
+        # Resize mask to consistent size before processing
+        if mask.shape[-2:] != (args.img_size, args.img_size):
+            mask = F.interpolate(mask.unsqueeze(0).float(), 
+                                size=(args.img_size, args.img_size), 
+                                mode='nearest').squeeze(0)
+        
         mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
 
         with torch.no_grad(), torch.cuda.amp.autocast():
@@ -269,8 +276,10 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
             
 
     gt_list = np.array(gt_list)
-    gt_mask_list = np.asarray(gt_mask_list)
-    gt_mask_list = (gt_mask_list>0).astype(np.int_)
+    
+    # Stack masks properly - they should now all have the same shape
+    gt_mask_list = np.stack(gt_mask_list, axis=0)  # Changed from np.asarray to np.stack
+    gt_mask_list = (gt_mask_list > 0).astype(np.int_)
 
 
     if CLASS_INDEX[args.obj] > 0:
