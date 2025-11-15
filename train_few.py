@@ -190,7 +190,6 @@ def main():
                             ckp_path)
           
 
-
 def test(args, model, test_loader, text_features, seg_mem_features, det_mem_features):
     gt_list = []
     gt_mask_list = []
@@ -204,11 +203,21 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
     for (image, y, mask) in tqdm(test_loader):
         image = image.to(device)
         
-        # Resize mask to consistent size before processing
-        if mask.shape[-2:] != (args.img_size, args.img_size):
-            mask = F.interpolate(mask.unsqueeze(0).float(), 
-                                size=(args.img_size, args.img_size), 
-                                mode='nearest').squeeze(0)
+        # Ensure mask is the right shape and size
+        # Handle different possible mask shapes
+        if len(mask.shape) == 2:  # (H, W)
+            mask = mask.unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
+        elif len(mask.shape) == 3:  # (B, H, W) or (1, H, W)
+            mask = mask.unsqueeze(1)  # (B, 1, H, W)
+        # If already (B, C, H, W), leave as is
+        
+        # Resize to consistent size
+        mask = F.interpolate(mask.float(), 
+                            size=(args.img_size, args.img_size), 
+                            mode='nearest')
+        
+        # Squeeze to remove batch and channel dims for processing
+        mask = mask.squeeze()
         
         mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
 
@@ -270,15 +279,28 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
                     anomaly_score += anomaly_map.mean()
                 det_image_scores_zero.append(anomaly_score.cpu().numpy())
 
+            # Convert to numpy and ensure consistent shape
+            mask_np = mask.cpu().detach().numpy()
             
-            gt_mask_list.append(mask.squeeze().cpu().detach().numpy())
+            # Ensure 2D shape (H, W)
+            if len(mask_np.shape) > 2:
+                mask_np = mask_np.squeeze()
+            
+            # Ensure it's exactly (args.img_size, args.img_size)
+            if mask_np.shape != (args.img_size, args.img_size):
+                # This shouldn't happen after interpolate, but just in case
+                from scipy.ndimage import zoom
+                zoom_factors = (args.img_size / mask_np.shape[0], args.img_size / mask_np.shape[1])
+                mask_np = zoom(mask_np, zoom_factors, order=0)
+            
+            gt_mask_list.append(mask_np)
             gt_list.extend(y.cpu().detach().numpy())
             
 
     gt_list = np.array(gt_list)
     
-    # Stack masks properly - they should now all have the same shape
-    gt_mask_list = np.stack(gt_mask_list, axis=0)  # Changed from np.asarray to np.stack
+    # Now all masks should have shape (args.img_size, args.img_size)
+    gt_mask_list = np.stack(gt_mask_list, axis=0)
     gt_mask_list = (gt_mask_list > 0).astype(np.int_)
 
 
@@ -318,5 +340,4 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
 
 if __name__ == '__main__':
     main()
-
 
