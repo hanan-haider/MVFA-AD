@@ -189,7 +189,6 @@ def main():
                             'det_adapters': model.det_adapters.state_dict()}, 
                             ckp_path)
           
-
 def test(args, model, test_loader, text_features, seg_mem_features, det_mem_features):
     gt_list = []
     gt_mask_list = []
@@ -282,16 +281,16 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
             # Convert to numpy and ensure consistent shape
             mask_np = mask.cpu().detach().numpy()
             
-            # Ensure 2D shape (H, W)
-            if len(mask_np.shape) > 2:
+            # Force to 2D by squeezing all extra dimensions
+            while len(mask_np.shape) > 2:
                 mask_np = mask_np.squeeze()
             
-            # Ensure it's exactly (args.img_size, args.img_size)
+            # Now mask_np should be 2D. Verify and resize if needed.
             if mask_np.shape != (args.img_size, args.img_size):
-                # This shouldn't happen after interpolate, but just in case
-                from scipy.ndimage import zoom
-                zoom_factors = (args.img_size / mask_np.shape[0], args.img_size / mask_np.shape[1])
-                mask_np = zoom(mask_np, zoom_factors, order=0)
+                # Use cv2 for reliable resizing
+                import cv2
+                mask_np = cv2.resize(mask_np, (args.img_size, args.img_size), 
+                                    interpolation=cv2.INTER_NEAREST)
             
             gt_mask_list.append(mask_np)
             gt_list.extend(y.cpu().detach().numpy())
@@ -340,4 +339,3 @@ def test(args, model, test_loader, text_features, seg_mem_features, det_mem_feat
 
 if __name__ == '__main__':
     main()
-
