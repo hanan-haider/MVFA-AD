@@ -100,7 +100,8 @@ def main():
 
         loss_list = []
         idx = 0
-        for (image, image_label, mask, seg_idx) in tqdm(train_loader):
+        for (image, image_label, mask, seg_idx) in tqdm(train_loader, leave=True, position=0):
+        #for (image, image_label, mask, seg_idx) in tqdm(train_loader):
             if idx > 0 and idx % (len(train_loader) // 5) == 0:
                 score = test(args, model, test_loader, text_feature_list[CLASS_INDEX[args.obj]])
                 if score >= save_score:
@@ -173,8 +174,6 @@ def main():
         print("Loss: ", np.mean(loss_list))
         
 
-
-
 def test(args, seg_model, test_loader, text_features):
     gt_list = []
     gt_mask_list = []
@@ -186,6 +185,13 @@ def test(args, seg_model, test_loader, text_features):
 
         image = image.to(device)
         mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
+        
+        # Process each item in the batch separately
+        batch_size = image.shape[0]
+        for i in range(batch_size):
+            single_image = image[i:i+1]  # Keep batch dimension
+            single_y = y[i]
+            single_mask = mask[i]
 
         with torch.no_grad(), torch.cuda.amp.autocast():
             _, ori_seg_patch_tokens, ori_det_patch_tokens = seg_model(image)
@@ -210,21 +216,22 @@ def test(args, seg_model, test_loader, text_features):
                 anomaly_map = (100.0 * patch_tokens[layer] @ text_features).unsqueeze(0)
                 B, L, C = anomaly_map.shape
                 H = int(np.sqrt(L))
-                anomaly_map = F.interpolate(anomaly_map.permute(0, 2, 1).view(B, 2, H, H),
-                                            size=args.img_size, mode='bilinear', align_corners=True)
+                anomaly_map = F.interpolate(
+                    anomaly_map.permute(0, 2, 1).view(B, 2, H, H),
+                    size=args.img_size, mode='bilinear', align_corners=True
+                )
                 anomaly_map = torch.softmax(anomaly_map, dim=1)[:, 1, :, :]
                 anomaly_maps.append(anomaly_map.cpu().numpy())
             final_score_map = np.sum(anomaly_maps, axis=0)
-            
-            gt_mask_list.append(mask.squeeze().cpu().detach().numpy())
-            gt_list.extend(y.cpu().detach().numpy())
             segment_scores.append(final_score_map)
-        
-        
+            
+            # Append individual items
+            gt_mask_list.append(single_mask.cpu().detach().numpy())
+            gt_list.append(single_y.cpu().detach().numpy())
 
     gt_list = np.array(gt_list)
     gt_mask_list = np.asarray(gt_mask_list)
-    gt_mask_list = (gt_mask_list>0).astype(np.int_)
+    gt_mask_list = (gt_mask_list > 0).astype(np.int_)
 
     segment_scores = np.array(segment_scores)
     image_scores = np.array(image_scores)
