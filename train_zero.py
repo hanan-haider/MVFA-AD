@@ -181,7 +181,9 @@ def test(args, seg_model, test_loader, text_features):
     image_scores = []
     segment_scores = []
     
-    for (image, y, mask) in tqdm(test_loader):
+    #for (image, y, mask) in tqdm(test_loader):
+    for (image, y, mask) in tqdm(test_loader, leave=False, position=1):
+
         image = image.to(device)
         mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
 
