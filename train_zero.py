@@ -100,9 +100,8 @@ def main():
 
         loss_list = []
         idx = 0
-        for (image, image_label, mask, seg_idx) in tqdm(train_loader, leave=True, position=0):
-            # Check if we should evaluate
-            if idx > 0 and idx % (len(train_loader) // 5) == 0:
+        for (image, image_label, mask, seg_idx) in tqdm(train_loader):
+            if idx % (len(train_loader) // 5) == 0:
                 score = test(args, model, test_loader, text_feature_list[CLASS_INDEX[args.obj]])
                 if score >= save_score:
                     save_score = score
@@ -114,116 +113,56 @@ def main():
                 print('\n')
             idx += 1
 
-            # Get the first item from the batch since batch_size=1 in DataLoader
-            image = image.squeeze(0).to(device)  # Remove DataLoader batch dim
-            image_label = image_label.squeeze(0).to(device)  # Should now be [16] or [1]
-            mask = mask.squeeze(0).to(device)
+            image = image.squeeze(0).to(device)
             seg_idx = seg_idx.item()
-        
-        # Check if dataset returns batches internally
-            actual_batch_size = image.shape[0] if image.dim() == 4 else 1
 
             with torch.cuda.amp.autocast():
-                # Process based on actual batch size
-                if actual_batch_size > 1:
-                    # Process entire batch
-                    _, seg_patch_tokens, det_patch_tokens = model(image)
-                
-                    # image level - process each sample in the batch
-                    det_loss = 0
-                    for batch_idx in range(actual_batch_size):
-                        sample_det_tokens = [p[batch_idx, 1:, :] for p in det_patch_tokens]
-                        for layer in range(len(sample_det_tokens)):
-                            sample_det_tokens[layer] = sample_det_tokens[layer] / sample_det_tokens[layer].norm(dim=-1, keepdim=True)
-                            anomaly_map = (100.0 * sample_det_tokens[layer] @ text_feature_list[seg_idx]).unsqueeze(0)    
-                            anomaly_map = torch.softmax(anomaly_map, dim=-1)[:, :, 1]
-                            anomaly_score = torch.mean(anomaly_map, dim=-1)
-                            det_loss += loss_bce(anomaly_score, image_label[batch_idx:batch_idx+1])
+                _, seg_patch_tokens, det_patch_tokens = model(image)
+                seg_patch_tokens = [p[0, 1:, :] for p in seg_patch_tokens]
+                det_patch_tokens = [p[0, 1:, :] for p in det_patch_tokens]
 
-                    if seg_idx > 0:
-                        # pixel level - process each sample in the batch
-                        seg_loss = 0
-                        for batch_idx in range(actual_batch_size):
-                            sample_seg_tokens = [p[batch_idx, 1:, :] for p in seg_patch_tokens]
-                            sample_mask = mask[batch_idx:batch_idx+1]
-                            sample_mask[sample_mask > 0.5], sample_mask[sample_mask <= 0.5] = 1, 0
-                        
-                            for layer in range(len(sample_seg_tokens)):
-                                sample_seg_tokens[layer] = sample_seg_tokens[layer] / sample_seg_tokens[layer].norm(dim=-1, keepdim=True)
-                                anomaly_map = (100.0 * sample_seg_tokens[layer] @ text_feature_list[seg_idx]).unsqueeze(0)
-                                B, L, C = anomaly_map.shape
-                                H = int(np.sqrt(L))
-                                anomaly_map = F.interpolate(anomaly_map.permute(0, 2, 1).view(B, 2, H, H),
-                                                        size=args.img_size, mode='bilinear', align_corners=True)
-                                anomaly_map = torch.softmax(anomaly_map, dim=1)
-                                seg_loss += loss_focal(anomaly_map, sample_mask)
-                                seg_loss += loss_dice(anomaly_map[:, 1, :, :], sample_mask)
-                    
-                        loss = seg_loss + det_loss
-                        loss.requires_grad_(True)
-                        seg_optimizer.zero_grad()
-                        det_optimizer.zero_grad()
-                        loss.backward()
-                        seg_optimizer.step()
-                        det_optimizer.step()
-                    else:
-                        loss = det_loss
-                        loss.requires_grad_(True)
-                        det_optimizer.zero_grad()
-                        loss.backward()
-                        det_optimizer.step()
-                    
-                else:
-                    # Single sample processing (original logic)
-                    _, seg_patch_tokens, det_patch_tokens = model(image.unsqueeze(0))
-                    seg_patch_tokens = [p[0, 1:, :] for p in seg_patch_tokens]
-                    det_patch_tokens = [p[0, 1:, :] for p in det_patch_tokens]
+                # image level
+                det_loss = 0
+                image_label = image_label.squeeze(0).to(device)
+                for layer in range(len(det_patch_tokens)):
+                    det_patch_tokens[layer] = det_patch_tokens[layer] / det_patch_tokens[layer].norm(dim=-1, keepdim=True)
+                    anomaly_map = (100.0 * det_patch_tokens[layer] @ text_feature_list[seg_idx]).unsqueeze(0)    
+                    anomaly_map = torch.softmax(anomaly_map, dim=-1)[:, :, 1]
+                    anomaly_score = torch.mean(anomaly_map, dim=-1)
+                    det_loss += loss_bce(anomaly_score, image_label)
 
-                    # image level
-                    det_loss = 0
-                    # Ensure image_label is shape [1]
-                    if image_label.dim() == 0:
-                        image_label = image_label.unsqueeze(0)
-                    elif image_label.shape[0] > 1:
-                        image_label = image_label[0:1]
-                    
-                    for layer in range(len(det_patch_tokens)):
-                        det_patch_tokens[layer] = det_patch_tokens[layer] / det_patch_tokens[layer].norm(dim=-1, keepdim=True)
-                        anomaly_map = (100.0 * det_patch_tokens[layer] @ text_feature_list[seg_idx]).unsqueeze(0)    
-                        anomaly_map = torch.softmax(anomaly_map, dim=-1)[:, :, 1]
-                        anomaly_score = torch.mean(anomaly_map, dim=-1)
-                        det_loss += loss_bce(anomaly_score, image_label)
 
-                    if seg_idx > 0:
-                        # pixel level
-                        seg_loss = 0
-                        if mask.dim() == 2:
-                            mask = mask.unsqueeze(0)
-                        mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
-                        for layer in range(len(seg_patch_tokens)):
-                            seg_patch_tokens[layer] = seg_patch_tokens[layer] / seg_patch_tokens[layer].norm(dim=-1, keepdim=True)
-                            anomaly_map = (100.0 * seg_patch_tokens[layer] @ text_feature_list[seg_idx]).unsqueeze(0)
-                            B, L, C = anomaly_map.shape
-                            H = int(np.sqrt(L))
-                            anomaly_map = F.interpolate(anomaly_map.permute(0, 2, 1).view(B, 2, H, H),
+                if seg_idx > 0:
+                    # pixel level
+                    seg_loss = 0
+                    mask = mask.squeeze(0).to(device)
+                    mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
+                    for layer in range(len(seg_patch_tokens)):
+                        seg_patch_tokens[layer] = seg_patch_tokens[layer] / seg_patch_tokens[layer].norm(dim=-1, keepdim=True)
+                        # print(seg_patch_tokens[layer].shape, text_feature_list[seg_idx].shape) # torch.Size([289, 768]) torch.Size([768, 2])
+                        anomaly_map = (100.0 * seg_patch_tokens[layer] @ text_feature_list[seg_idx]).unsqueeze(0)
+                        B, L, C = anomaly_map.shape
+                        H = int(np.sqrt(L))
+                        anomaly_map = F.interpolate(anomaly_map.permute(0, 2, 1).view(B, 2, H, H),
                                                     size=args.img_size, mode='bilinear', align_corners=True)
-                            anomaly_map = torch.softmax(anomaly_map, dim=1)
-                            seg_loss += loss_focal(anomaly_map, mask)
-                            seg_loss += loss_dice(anomaly_map[:, 1, :, :], mask)
+                        anomaly_map = torch.softmax(anomaly_map, dim=1)
+                        seg_loss += loss_focal(anomaly_map, mask)
+                        seg_loss += loss_dice(anomaly_map[:, 1, :, :], mask)
                     
-                        loss = seg_loss + det_loss
-                        loss.requires_grad_(True)
-                        seg_optimizer.zero_grad()
-                        det_optimizer.zero_grad()
-                        loss.backward()
-                        seg_optimizer.step()
-                        det_optimizer.step()
-                    else:
-                        loss = det_loss
-                        loss.requires_grad_(True)
-                        det_optimizer.zero_grad()
-                        loss.backward()
-                        det_optimizer.step()
+                    loss = seg_loss + det_loss # = focal(seg_out, mask) + bce(det_out, y)
+                    loss.requires_grad_(True)
+                    seg_optimizer.zero_grad()
+                    det_optimizer.zero_grad()
+                    loss.backward()
+                    seg_optimizer.step()
+                    det_optimizer.step()
+
+                else:
+                    loss = det_loss
+                    loss.requires_grad_(True)
+                    det_optimizer.zero_grad()
+                    loss.backward()
+                    det_optimizer.step()
 
                 loss_list.append(loss.item())
 
@@ -232,6 +171,8 @@ def main():
 
         # logs
         print("Loss: ", np.mean(loss_list))
+        
+
 
 
 def test(args, seg_model, test_loader, text_features):
@@ -240,18 +181,9 @@ def test(args, seg_model, test_loader, text_features):
     image_scores = []
     segment_scores = []
     
-    #for (image, y, mask) in tqdm(test_loader):
-    for (image, y, mask) in tqdm(test_loader, leave=False, position=1):
-
+    for (image, y, mask) in tqdm(test_loader):
         image = image.to(device)
         mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
-        
-        # Process each item in the batch separately
-        batch_size = image.shape[0]
-        for i in range(batch_size):
-            single_image = image[i:i+1]  # Keep batch dimension
-            single_y = y[i]
-            single_mask = mask[i]
 
         with torch.no_grad(), torch.cuda.amp.autocast():
             _, ori_seg_patch_tokens, ori_det_patch_tokens = seg_model(image)
@@ -262,7 +194,7 @@ def test(args, seg_model, test_loader, text_features):
             anomaly_score = 0
             patch_tokens = ori_det_patch_tokens.copy()
             for layer in range(len(patch_tokens)):
-                patch_tokens[layer] = patch_tokens[layer] / patch_tokens[layer].norm(dim=-1, keepdim=True)
+                patch_tokens[layer] /= patch_tokens[layer].norm(dim=-1, keepdim=True)
                 anomaly_map = (100.0 * patch_tokens[layer] @ text_features).unsqueeze(0)
                 anomaly_map = torch.softmax(anomaly_map, dim=-1)[:, :, 1]
                 anomaly_score += anomaly_map.mean()
@@ -272,26 +204,25 @@ def test(args, seg_model, test_loader, text_features):
             patch_tokens = ori_seg_patch_tokens
             anomaly_maps = []
             for layer in range(len(patch_tokens)):
-                patch_tokens[layer] = patch_tokens[layer] / patch_tokens[layer].norm(dim=-1, keepdim=True)
+                patch_tokens[layer] /= patch_tokens[layer].norm(dim=-1, keepdim=True)
                 anomaly_map = (100.0 * patch_tokens[layer] @ text_features).unsqueeze(0)
                 B, L, C = anomaly_map.shape
                 H = int(np.sqrt(L))
-                anomaly_map = F.interpolate(
-                    anomaly_map.permute(0, 2, 1).view(B, 2, H, H),
-                    size=args.img_size, mode='bilinear', align_corners=True
-                )
+                anomaly_map = F.interpolate(anomaly_map.permute(0, 2, 1).view(B, 2, H, H),
+                                            size=args.img_size, mode='bilinear', align_corners=True)
                 anomaly_map = torch.softmax(anomaly_map, dim=1)[:, 1, :, :]
                 anomaly_maps.append(anomaly_map.cpu().numpy())
             final_score_map = np.sum(anomaly_maps, axis=0)
-            segment_scores.append(final_score_map)
             
-            # Append individual items
-            gt_mask_list.append(single_mask.cpu().detach().numpy())
-            gt_list.append(single_y.cpu().detach().numpy())
+            gt_mask_list.append(mask.squeeze().cpu().detach().numpy())
+            gt_list.extend(y.cpu().detach().numpy())
+            segment_scores.append(final_score_map)
+        
+        
 
     gt_list = np.array(gt_list)
     gt_mask_list = np.asarray(gt_mask_list)
-    gt_mask_list = (gt_mask_list > 0).astype(np.int_)
+    gt_mask_list = (gt_mask_list>0).astype(np.int_)
 
     segment_scores = np.array(segment_scores)
     image_scores = np.array(image_scores)
@@ -311,5 +242,4 @@ def test(args, seg_model, test_loader, text_features):
 
 if __name__ == '__main__':
     main()
-
 
