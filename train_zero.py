@@ -95,7 +95,7 @@ def main():
 
     save_score = 0.0
 
-for epoch in range(args.epoch):
+    for epoch in range(args.epoch):
         print('epoch', epoch, ':')
 
         loss_list = []
