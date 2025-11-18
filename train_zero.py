@@ -262,7 +262,7 @@ def test(args, seg_model, test_loader, text_features):
             anomaly_score = 0
             patch_tokens = ori_det_patch_tokens.copy()
             for layer in range(len(patch_tokens)):
-                patch_tokens[layer] /= patch_tokens[layer].norm(dim=-1, keepdim=True)
+                patch_tokens[layer] = patch_tokens[layer] / patch_tokens[layer].norm(dim=-1, keepdim=True)
                 anomaly_map = (100.0 * patch_tokens[layer] @ text_features).unsqueeze(0)
                 anomaly_map = torch.softmax(anomaly_map, dim=-1)[:, :, 1]
                 anomaly_score += anomaly_map.mean()
@@ -272,7 +272,7 @@ def test(args, seg_model, test_loader, text_features):
             patch_tokens = ori_seg_patch_tokens
             anomaly_maps = []
             for layer in range(len(patch_tokens)):
-                patch_tokens[layer] /= patch_tokens[layer].norm(dim=-1, keepdim=True)
+                patch_tokens[layer] = patch_tokens[layer] / patch_tokens[layer].norm(dim=-1, keepdim=True)
                 anomaly_map = (100.0 * patch_tokens[layer] @ text_features).unsqueeze(0)
                 B, L, C = anomaly_map.shape
                 H = int(np.sqrt(L))
