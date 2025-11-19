@@ -1,3 +1,4 @@
+
 import os
 import argparse
 import random
@@ -7,6 +8,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from tqdm import tqdm
+
 from sklearn.metrics import roc_auc_score
 from scipy.ndimage import gaussian_filter
 from dataset.medical_zero import MedTestDataset, MedTrainDataset
@@ -95,13 +97,15 @@ def main():
 
     save_score = 0.0
 
+
+
     for epoch in range(args.epoch):
         print('epoch', epoch, ':')
 
         loss_list = []
         idx = 0
-        for (image, image_label, mask, seg_idx) in tqdm(train_loader):
-            if idx % (len(train_loader) // 5) == 0:
+        for (image, image_label, mask, seg_idx) in tqdm(train_loader, position=0, leave=True, desc=f"Epoch {epoch}"):
+            if idx > 0 and idx % (len(train_loader) // 20) == 0:
                 score = test(args, model, test_loader, text_feature_list[CLASS_INDEX[args.obj]])
                 if score >= save_score:
                     save_score = score
@@ -181,7 +185,7 @@ def test(args, seg_model, test_loader, text_features):
     image_scores = []
     segment_scores = []
     
-    for (image, y, mask) in tqdm(test_loader):
+    for (image, y, mask) in tqdm(test_loader, position=0, leave=True, desc=f"test"):
         image = image.to(device)
         mask[mask > 0.5], mask[mask <= 0.5] = 1, 0
 
@@ -242,4 +246,3 @@ def test(args, seg_model, test_loader, text_features):
 
 if __name__ == '__main__':
     main()
-
