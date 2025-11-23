@@ -49,7 +49,10 @@ def main():
     parser.add_argument('--img_size', type=int, default=240)
     parser.add_argument("--epoch", type=int, default=50, help="epochs")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="learning rate")
-    parser.add_argument("--features_list", type=int, nargs="+", default=[6, 12, 18, 24], help="features used")
+    #parser.add_argument("--features_list", type=int, nargs="+", default=[6, 12, 18, 24], help="features used")
+    # Current: [6, 12, 18, 24] → too shallow!
+    # Change to:
+    parser.add_argument("--features_list", type=int, nargs="+", default=[20, 21, 22, 23, 24])
     parser.add_argument('--seed', type=int, default=111)
     parser.add_argument('--shot', type=int, default=4)
     parser.add_argument('--iterate', type=int, default=0)
