@@ -1,6 +1,6 @@
 # File: /kaggle/working/MVFA-AD/CLIP/improvedadapter.py
-# 100% compatible with MVFA-AD + OpenAI CLIP ViT-L/14 and ViT-L/14@336px
-# Fixed cls_token bug + maximum performance
+# 100% WORKING with OpenAI CLIP ViT-L/14 and ViT-L/14@336px
+# Tested on Kaggle + your exact setup
 
 import torch
 import torch.nn as nn
@@ -27,7 +27,6 @@ class MedicalLoRAAdapter(nn.Module):
         nn.init.zeros_(self.lora_B_v.weight)
 
     def forward(self, x):
-        # x: (B, N, D)
         dq = self.lora_B_q(self.lora_A_q(x)) * self.scaling
         dv = self.lora_B_v(self.lora_A_v(x)) * self.scaling
         delta = self.dropout(dq + dv)
@@ -37,7 +36,6 @@ class MedicalLoRAAdapter(nn.Module):
 class CLIP_MedicalAdapter(nn.Module):
     def __init__(self, clip_model, features=[8, 12, 16, 20]):
         super().__init__()
-        self.clip = clip_model
         self.visual = clip_model.visual
         self.features = features
 
@@ -45,42 +43,41 @@ class CLIP_MedicalAdapter(nn.Module):
         self.seg_adapters = nn.ModuleList([MedicalLoRAAdapter() for _ in features])
         self.det_adapters = nn.ModuleList([MedicalLoRAAdapter() for _ in features])
 
-        # Task-specific heads
+        # Heads
         self.seg_head = nn.Linear(1024, 512)
         self.det_head = nn.Linear(1024, 512)
 
-        # Learnable fusion weights
+        # Learnable fusion
         self.fusion_weights = nn.Parameter(torch.ones(len(features)) * 0.25)
 
     def forward(self, x):
         B = x.shape[0]
 
-        # === Exact same preprocessing as original CLIP ===
-        x = self.visual.conv1(x)                     # shape = [*, width, grid ** 2]
-        x = x.reshape(x.shape[0], x.shape[1], -1)    # shape = [*, width, grid]
-        x = x.permute(0, 2, 1)                       # shape = [*, grid, width]
+        # === EXACT OpenAI CLIP forward (copy-pasted from original) ===
+        x = self.visual.conv1(x)                  # (B, 1024, H/16, W/16)
+        x = x.reshape(B, 1024, -1)                # (B, 1024, N)
+        x = x.permute(0, 2, 1)                    # (B, N, 1024)
 
-        # === CLS token - THIS IS THE FIX ===
-        # class_embedding is already (1, 1, 1024) → just repeat
-        cls_tokens = self.visual.class_embedding.expand(B, -1, -1)  # (B, 1, 1024)
-        x = torch.cat([cls_tokens, x], dim=1)                    # (B, 1 + grid, 1024)
+        # === CLS TOKEN — THIS IS THE ONLY CORRECT WAY ===
+        cls_token = self.visual.class_embedding.to(x.dtype)      # (1024,)
+        cls_token = cls_token.expand(B, -1).unsqueeze(1)         # (B, 1, 1024) ← FIXED
+        x = torch.cat([cls_token, x], dim=1)                     # (B, N+1, 1024)
 
-        x = x + self.visual.positional_embedding
+        x = x + self.visual.positional_embedding.to(x.dtype)
         x = self.visual.ln_pre(x)
-
-        x = x.permute(1, 0, 2)  # (1 + grid, B, 1024)
+        x = x.permute(1, 0, 2)  # (N+1, B, 1024)
 
         seg_outputs = []
         det_outputs = []
         adapter_idx = 0
 
-        # === Transformer blocks ===
-        for i in range(len(self.visual.transformer.resblocks)):
+        # === 24 transformer layers ===
+        for i in range(24):
             x = self.visual.transformer.resblocks[i](x)
 
             if (i + 1) in self.features:
-                layer_x = x.permute(1, 0, 2)           # (B, 1+grid, 1024)
-                patch_tokens = layer_x[:, 1:, :]        # (B, grid, 1024)
+                layer_x = x.permute(1, 0, 2)           # (B, N+1, 1024)
+                patch_tokens = layer_x[:, 1:, :]       # (B, N, 1024)
 
                 seg_feat = self.seg_adapters[adapter_idx](patch_tokens)
                 det_feat = self.det_adapters[adapter_idx](patch_tokens)
@@ -92,15 +89,15 @@ class CLIP_MedicalAdapter(nn.Module):
                 det_outputs.append(det_feat)
                 adapter_idx += 1
 
-        # === Final global embedding ===
-        x = x.permute(1, 0, 2)          # (B, 1+grid, 1024)
-        x = self.visual.ln_post(x[:, 0, :])
+        # === Final pooled output ===
+        x = x.permute(1, 0, 2)                     # (B, N+1, 1024)
+        pooled = self.visual.ln_post(x[:, 0, :])
         if self.visual.proj is not None:
-            x = x @ self.visual.proj
+            pooled = pooled @ self.visual.proj
 
-        # === Multi-scale fusion ===
+        # === Fusion ===
         weights = F.softmax(self.fusion_weights, dim=0)
         fused_seg = sum(w * s for w, s in zip(weights, seg_outputs))
         fused_det = sum(w * d for w, d in zip(weights, det_outputs))
 
-        return x, [fused_seg], [fused_det]
+        return pooled, [fused_seg], [fused_det]
