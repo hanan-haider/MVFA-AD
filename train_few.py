@@ -12,7 +12,7 @@ from dataset.medical_few import MedDataset
 from CLIP.clip import create_model
 from CLIP.tokenizer import tokenize
 
-from CLIP.improvedadapter import EnhancedCLIPAdapter
+from CLIP.improvedadapter import CLIP_MedicalAdapter
 
 #from CLIP.adapter import CLIP_Inplanted
 from PIL import Image
@@ -67,15 +67,29 @@ def main():
     clip_model = create_model(model_name=args.model_name, img_size=args.img_size, device=device, pretrained=args.pretrain, require_pretrained=True)
     clip_model.eval()
 
-    model = EnhancedCLIPAdapter(clip_model=clip_model, features=args.features_list, r=16,   alpha=32).to(device) 
+    model = CLIP_MedicalAdapter(clip_model=clip_model, features=args.features_list, r=16,   alpha=32).to(device) 
     model.eval()
 
     for name, param in model.named_parameters():
         param.requires_grad = True
 
     # optimizer for only adapters
-    seg_optimizer = torch.optim.Adam(list(model.seg_adapters.parameters()), lr=args.learning_rate, betas=(0.5, 0.999))
-    det_optimizer = torch.optim.Adam(list(model.det_adapters.parameters()), lr=args.learning_rate, betas=(0.5, 0.999))
+    #seg_optimizer = torch.optim.Adam(list(model.seg_adapters.parameters()), lr=args.learning_rate, betas=(0.5, 0.999))
+    #det_optimizer = torch.optim.Adam(list(model.det_adapters.parameters()), lr=args.learning_rate, betas=(0.5, 0.999))
+
+
+    # Best practice: slightly different LR for heads and fusion
+    seg_optimizer = torch.optim.Adam([
+        {'params': model.seg_adapters.parameters(), 'lr': args.learning_rate},
+        {'params': model.seg_head.parameters(),       'lr': args.learning_rate * 2},
+        {'params': model.fusion,                      'lr': args.learning_rate * 5},
+        ], betas=(0.5, 0.999), weight_decay=0.01)
+
+    det_optimizer = torch.optim.Adam([
+        {'params': model.det_adapters.parameters(), 'lr': args.learning_rate},
+        {'params': model.det_head.parameters(),       'lr': args.learning_rate * 2},
+        {'params': model.fusion,                      'lr': args.learning_rate * 5},
+        ], betas=(0.5, 0.999), weight_decay=0.01)
 
 
     # load test dataset
