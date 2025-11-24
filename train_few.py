@@ -78,18 +78,18 @@ def main():
     #det_optimizer = torch.optim.Adam(list(model.det_adapters.parameters()), lr=args.learning_rate, betas=(0.5, 0.999))
 
 
-    # Best practice: slightly different LR for heads and fusion
+# optimizer for only adapters
     seg_optimizer = torch.optim.Adam([
         {'params': model.seg_adapters.parameters(), 'lr': args.learning_rate},
         {'params': model.seg_head.parameters(),       'lr': args.learning_rate * 2},
-        {'params': model.fusion,                      'lr': args.learning_rate * 5},
+        {'params': model.fusion_weights,              'lr': args.learning_rate * 5},
         ], betas=(0.5, 0.999), weight_decay=0.01)
 
     det_optimizer = torch.optim.Adam([
         {'params': model.det_adapters.parameters(), 'lr': args.learning_rate},
         {'params': model.det_head.parameters(),       'lr': args.learning_rate * 2},
-        {'params': model.fusion,                      'lr': args.learning_rate * 5},
-        ], betas=(0.5, 0.999), weight_decay=0.01)
+        {'params': model.fusion_weights,              'lr': args.learning_rate * 5},
+    ], betas=(0.5, 0.999), weight_decay=0.01)
 
 
     # load test dataset
