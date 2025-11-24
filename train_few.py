@@ -12,7 +12,7 @@ from dataset.medical_few import MedDataset
 from CLIP.clip import create_model
 from CLIP.tokenizer import tokenize
 
-from CLIP.improvedadapter import CLIP_Inplanted
+from CLIP.improvedadapter import EnhancedCLIPAdapter
 
 #from CLIP.adapter import CLIP_Inplanted
 from PIL import Image
