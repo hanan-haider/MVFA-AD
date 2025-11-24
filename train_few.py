@@ -67,7 +67,7 @@ def main():
     clip_model = create_model(model_name=args.model_name, img_size=args.img_size, device=device, pretrained=args.pretrain, require_pretrained=True)
     clip_model.eval()
 
-    model = EnhancedCLIPAdapter(clip_model=clip_model, features=args.features_list, r=16,   alpha=32)).to(device)
+    model = EnhancedCLIPAdapter(clip_model=clip_model, features=args.features_list, r=16,   alpha=32).to(device) 
     model.eval()
 
     for name, param in model.named_parameters():
