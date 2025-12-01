@@ -12,9 +12,9 @@ from dataset.medical_few import MedDataset
 from CLIP.clip import create_model
 from CLIP.tokenizer import tokenize
 
-from CLIP.improvedadapter import CLIP_Inplanted
+#from CLIP.improvedadapter import CLIP_Inplanted
 
-#from CLIP.adapter import CLIP_Inplanted
+from CLIP.adapter import CLIP_Inplanted
 from PIL import Image
 from sklearn.metrics import roc_auc_score, precision_recall_curve, pairwise
 from loss import FocalLoss, BinaryDiceLoss
