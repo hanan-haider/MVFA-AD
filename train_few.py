@@ -23,7 +23,9 @@ from prompt import REAL_NAME
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import warnings
-warnings.filterwarnings("ignore")
+#warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")

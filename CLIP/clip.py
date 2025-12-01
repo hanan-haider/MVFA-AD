@@ -11,6 +11,8 @@ from .model import CLIP, CustomTextCLIP, convert_weights_to_lp, convert_to_custo
 from .openai import load_openai_model
 
 
+
+
 _MODEL_CONFIG_PATHS = [Path(__file__).parent / f"model_configs/"]
 _MODEL_CONFIGS = {}  # directory (model_name: config) of model architecture configs
 _MODEL_CKPT_PATHS = {'ViT-L-14-336': Path(__file__).parent / "ckpt/ViT-L-14-336px.pt"}
