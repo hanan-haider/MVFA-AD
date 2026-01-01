@@ -13,7 +13,7 @@ from .openai import load_openai_model
 
 _MODEL_CONFIG_PATHS = [Path(__file__).parent / f"model_configs/"]
 _MODEL_CONFIGS = {}  # directory (model_name: config) of model architecture configs
-_MODEL_CKPT_PATHS = {'BiomedCLIP-PubMedBERT-ViT-B-16': Path(__file__).parent / "ckpt/open_clip_pytorch_model.bin"}
+_MODEL_CKPT_PATHS = {'BiomedCLIP-PubMedBERT_256-vit_base_patch16_224': Path(__file__).parent / "ckpt/open_clip_pytorch_model.bin"}
 
 
 def _natural_key(string_):
