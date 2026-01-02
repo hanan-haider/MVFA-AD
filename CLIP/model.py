@@ -159,8 +159,8 @@ class CustomTextCLIP(nn.Module):
     def __init__(
             self,
             embed_dim: int,
-            vision_cfg: CLIPVisionCfg,
-            text_cfg: CLIPTextCfg,
+            vision_cfg: BioMedCLIPVisionCfg,
+            text_cfg: BioMedCLIPTextCfg,
             quick_gelu: bool = False,
             cast_dtype: Optional[torch.dtype] = None,
             output_dict: bool = False,
