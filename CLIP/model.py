@@ -127,28 +127,25 @@ def _build_text_tower(
         text_cfg: BioMedCLIPTextCfg,
         quick_gelu: bool = False,
         cast_dtype: Optional[torch.dtype] = None,
+
 ):
+    print("\n Building text tower...")
+    print("Here is the text config:", text_cfg,"\n")
+
     if isinstance(text_cfg, dict):
-        text_cfg = CLIPTextCfg(**text_cfg)
+        text_cfg = BioMedCLIPTextCfg(**text_cfg)
+    
+    print("\nText config for text tower:", text_cfg)
 
-    act_layer = QuickGELU if quick_gelu else nn.GELU
-    norm_layer = LayerNormFp32 if cast_dtype in (torch.float16, torch.bfloat16) else LayerNorm
-
-    text = TextTransformer(
-        context_length=text_cfg.context_length,
-        vocab_size=text_cfg.vocab_size,
-        width=text_cfg.width,
-        heads=text_cfg.heads,
-        layers=text_cfg.layers,
-        ls_init_value=text_cfg.ls_init_value,
-        output_dim=embed_dim,
-        embed_cls=text_cfg.embed_cls,
-        output_tokens=text_cfg.output_tokens,
-        pad_id=text_cfg.pad_id,
-        act_layer=act_layer,
-        norm_layer=norm_layer,
-    )
-    return text
+    if text_cfg.hf_model_name:
+        text = HFTextEncoder(
+            text_cfg.hf_model_name,
+            output_dim=embed_dim,
+            proj_type=text_cfg.hf_proj_type,
+            pooler_type=text_cfg.hf_pooler_type,
+            pretrained=text_cfg.hf_model_pretrained,
+            output_tokens=text_cfg.output_tokens,
+        )
 
 
 
