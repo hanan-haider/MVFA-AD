@@ -10,6 +10,7 @@ from typing import Optional, Union
 import torch
 
 #from .model import build_model_from_biomedclip_state_dict, get_cast_dtype
+from .model import get_cast_dtype
 from .model import convert_weights_to_lp  # optional
 
 __all__ = ["load_biomedclip_model"]
