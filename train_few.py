@@ -38,18 +38,40 @@ def setup_seed(seed):
 
 
 def main():
+  
     parser = argparse.ArgumentParser(description='Testing')
-    parser.add_argument('--model_name', type=str, default='ViT-L-14-336', help="ViT-B-16-plus-240, ViT-L-14-336")
-    parser.add_argument('--pretrain', type=str, default='openai', help="laion400m, openai")
+    parser.add_argument(
+        '--model_name',
+        type=str,
+        default='BiomedCLIP-PubMedBERT_256-vit_base_patch16_224',
+        help="BiomedCLIP-PubMedBERT_256-vit_base_patch16_224"
+    )
+    parser.add_argument(
+        '--pretrain',
+        type=str,
+        default='biomedclip',
+        help="pretrained source: e.g., biomedclip (local/HF checkpoint id)"
+    )
     parser.add_argument('--obj', type=str, default='Liver')
     parser.add_argument('--data_path', type=str, default='./data/')
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--save_model', type=int, default=1)
     parser.add_argument('--save_path', type=str, default='./ckpt/few-shot/')
-    parser.add_argument('--img_size', type=int, default=240)
+    parser.add_argument(
+        '--img_size',
+        type=int,
+        default=224,
+        help="BiomedCLIP uses ViT-B/16 with 224x224 images"
+    )
     parser.add_argument("--epoch", type=int, default=50, help="epochs")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="learning rate")
-    parser.add_argument("--features_list", type=int, nargs="+", default=[6, 12, 18, 24], help="features used")
+    parser.add_argument(
+        "--features_list",
+        type=int,
+        nargs="+",
+        default=[2, 4, 8, 12],
+        help="adapter layers for ViT-B/16 (12 blocks)"
+    )
     parser.add_argument('--seed', type=int, default=111)
     parser.add_argument('--shot', type=int, default=4)
     parser.add_argument('--iterate', type=int, default=0)
