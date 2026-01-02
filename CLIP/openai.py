@@ -69,6 +69,7 @@ def load_biomedclip_model(
             )
             jit = False
         state_dict = torch.load(model_path, map_location="cpu")
+        print("here is the state dict",state_dict)
      
     
     if not jit:
