@@ -367,6 +367,97 @@ def build_model_from_openai_state_dict(
     model.load_state_dict(state_dict)
     return model.eval()
 
+def build_model_from_biomedclip_state_dict(
+    state_dict: dict,
+    cast_dtype=torch.float16,
+):
+    """
+    Build BiomedCLIP model from official Microsoft checkpoint state_dict
+    (e.g. microsoft/BiomedCLIP-PubMedBERT-ViT-B-16)
+    """
+
+    print("Building BiomedCLIP model from state_dict...")
+    print(f"   Total parameters in state_dict: {len(state_dict)}")
+
+    # === Vision Tower (ViT-B/16) ===
+    print("Parsing vision tower (ViT-B/16)...")
+    vision_width = state_dict["visual.trunk.patch_embed.proj.weight"].shape[0]  # 768
+    vision_layers = len([
+        k for k in state_dict.keys()
+        if k.startswith("visual.trunk.blocks.") and k.endswith(".attn.qkv.weight")
+    ])
+    vision_patch_size = state_dict["visual.trunk.patch_embed.proj.weight"].shape[-1]
+    pos_embed_shape = state_dict["visual.trunk.pos_embed"].shape
+    grid_size = int((pos_embed_shape[1] - 1) ** 0.5)
+    image_size = vision_patch_size * grid_size
+
+    print(f"   Vision: width={vision_width}, layers={vision_layers}, patch_size={vision_patch_size}, image_size={image_size}")
+
+    # === Text Tower (PubMedBERT) ===
+    print("Parsing text tower (PubMedBERT)...")
+    transformer_width = state_dict["text.transformer.embeddings.word_embeddings.weight"].shape[1]
+    vocab_size = state_dict["text.transformer.embeddings.word_embeddings.weight"].shape[0]
+    context_length = state_dict["text.transformer.embeddings.position_embeddings.weight"].shape[0]
+
+    transformer_layers = len([
+        k for k in state_dict.keys()
+        if k.startswith("text.transformer.encoder.layer.") and k.endswith(".attention.self.query.weight")
+    ])
+    transformer_heads = transformer_width // 64
+
+    embed_dim = state_dict["visual.head.proj.weight"].shape[0]  # 512
+
+    print(f"   Text: width={transformer_width}, heads={transformer_heads}, layers={transformer_layers}, "
+          f"vocab={vocab_size}, ctx_len={context_length}, embed_dim={embed_dim}")
+
+    # === Configs ===
+    vision_cfg = BioMedCLIPVisionCfg(
+        layers=vision_layers,
+        width=vision_width,
+        patch_size=vision_patch_size,
+        image_size=image_size,
+        timm_model_name="vit_base_patch16_224",
+        timm_model_pretrained=False,
+        timm_pool='',
+        timm_proj='linear',
+    )
+    print("\nvision configs inside build model from state dict:", vision_cfg)
+
+    text_cfg = BioMedCLIPTextCfg(
+        context_length=context_length,
+        vocab_size=vocab_size,
+        width=transformer_width,
+        heads=transformer_heads,
+        layers=transformer_layers,
+        hf_model_name='microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract',
+        hf_tokenizer_name='microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract',
+        hf_proj_type='mlp',
+        hf_pooler_type='cls_last_hidden_state_pooler',
+    )
+    #print("\ntext configs inside build model from state dict:", text_cfg)
+
+    print("Creating CustomTextCLIP model instance...")
+    model = CustomTextCLIP(
+        embed_dim=embed_dim,
+        vision_cfg=vision_cfg,
+        text_cfg=text_cfg,
+        quick_gelu=False,
+        cast_dtype=cast_dtype,
+    )
+
+
+    # One key ('text.transformer.embeddings.position_ids') in your state_dict is unused
+    state_dict = {
+        k: v for k, v in state_dict.items()
+        if k in model.state_dict().keys()
+    }
+
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    print("Missing keys:", missing)
+    print("Unexpected keys:", unexpected)
+
+    return model 
+
 
 def trace_model(model, batch_size=256, device=torch.device('cpu')):
     model.eval()
