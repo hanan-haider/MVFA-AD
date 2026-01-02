@@ -69,7 +69,7 @@ def load_biomedclip_model(
             )
             jit = False
         state_dict = torch.load(model_path, map_location="cpu")
-        print("here is the state dict",state_dict)
+        openai_style_state = remap_biomedclip_to_openai_keys(biomed_state)
      
     
     if not jit:
@@ -79,7 +79,7 @@ def load_biomedclip_model(
         try:
             print("building biomedclip from state dict in openai.py")
             model = build_model_from_biomedclip_state_dict(
-                state_dict or model.state_dict(),
+                openai_style_state,
                 cast_dtype=cast_dtype,
             )
             #print("here is the state dict of model",model)
