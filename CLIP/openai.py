@@ -81,7 +81,7 @@ def load_biomedclip_model(
                 state_dict or model.state_dict(),
                 cast_dtype=cast_dtype,
             )
-            print("here is the state dict of model",model)
+            #print("here is the state dict of model",model)
         except Exception:
             # Common pattern: checkpoint["state_dict"] with "module." prefixes
             if isinstance(state_dict, dict) and "state_dict" in state_dict:
