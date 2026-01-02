@@ -10,7 +10,7 @@ from typing import Optional, Union
 import torch
 
 #from .model import build_model_from_biomedclip_state_dict, get_cast_dtype
-from .model import build_model_from_openai_state_dict
+from .model import build_model_from_openai_state_dict , get_cast_dtype
 from .model import convert_weights_to_lp  # optional
 from .remap import remap_biomedclip_to_openai_keys
 
