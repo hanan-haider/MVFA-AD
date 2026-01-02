@@ -70,7 +70,7 @@ def load_biomedclip_model(
             )
             jit = False
         state_dict = torch.load(model_path, map_location="cpu")
-        openai_style_state = remap_biomedclip_to_openai_keys(biomed_state)
+        openai_style_state = remap_biomedclip_to_openai_keys(state_dict)
      
     
     if not jit:
