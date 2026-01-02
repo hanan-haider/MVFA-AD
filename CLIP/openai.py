@@ -76,6 +76,7 @@ def load_biomedclip_model(
 
         # Build BiomedCLIP model from state_dict
         try:
+            print("building biomedclip from state dict in openai.py")
             model = build_model_from_biomedclip_state_dict(
                 state_dict or model.state_dict(),
                 cast_dtype=cast_dtype,
