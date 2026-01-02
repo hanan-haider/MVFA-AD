@@ -154,7 +154,7 @@ def create_model(
             if jit:
                 model = torch.jit.script(model)
         else:   # at step 2 it runs this 
-        print(f'Loaded {model_name} model config.')
+            print(f'Loaded {model_name} model config.')
             checkpoint_path = _MODEL_CKPT_PATHS[model_name]
             model = load_biomedclip_model(
                 name=str(checkpoint_path),
