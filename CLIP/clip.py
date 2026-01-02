@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 import torch
 #from .model import CLIP, CustomTextCLIP, convert_weights_to_lp, convert_to_custom_text_state_dict, resize_pos_embed, get_cast_dtype
-#from .openai import load_openai_model
+from .openai import load_biomedclip_model
 
 
 #path of model configuration 
@@ -153,7 +153,7 @@ def create_model(
 
             if jit:
                 model = torch.jit.script(model)
-        else:
+        else:   # at step 2 it runs this 
             checkpoint_path = _MODEL_CKPT_PATHS[model_name]
             model = load_biomedclip_model(
                 name=str(checkpoint_path),
