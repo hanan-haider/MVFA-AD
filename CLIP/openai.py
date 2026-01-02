@@ -75,7 +75,7 @@ def load_biomedclip_model(
     
     if not jit:
         cast_dtype = get_cast_dtype(precision)
-build_model_from_openai_state_dict
+#build_model_from_openai_state_dict
         # Build BiomedCLIP model from state_dict
         try:
             print("building biomedclip from state dict in openai.py")
@@ -83,7 +83,7 @@ build_model_from_openai_state_dict
             model = build_model_from_openai_state_dict(
                 openai_style_state,
                 cast_dtype=cast_dtype,
-            )
+                )
             #print("here is the state dict of model",model)
         except Exception:
             # Common pattern: checkpoint["state_dict"] with "module." prefixes
