@@ -17,6 +17,7 @@ from .modified_resnet import ModifiedResNet
 from .transformer import LayerNormFp32, LayerNorm, QuickGELU, Attention, VisionTransformer, TextTransformer
 from dataclasses import dataclass
 from typing import Optional
+from .hf_model import HFTextEncoder
 
 @dataclass
 class BioMedCLIPVisionCfg:
