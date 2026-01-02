@@ -7,13 +7,21 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 import torch
-from .model import CLIP, CustomTextCLIP, convert_weights_to_lp, convert_to_custom_text_state_dict, resize_pos_embed, get_cast_dtype
-from .openai import load_openai_model
+#from .model import CLIP, CustomTextCLIP, convert_weights_to_lp, convert_to_custom_text_state_dict, resize_pos_embed, get_cast_dtype
+#from .openai import load_openai_model
 
 
-_MODEL_CONFIG_PATHS = [Path(__file__).parent / f"model_configs/"]
+#path of model configuration 
+_MODEL_CONFIG_PATHS = [Path("/kaggle/working/MVFA-AD/CLIP/model_configs/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224.json")]
+#_MODEL_CONFIG_PATHS = [Path(__file__).parent / f"model_configs/"]
+
 _MODEL_CONFIGS = {}  # directory (model_name: config) of model architecture configs
-_MODEL_CKPT_PATHS = {'BiomedCLIP-PubMedBERT_256-vit_base_patch16_224': Path(__file__).parent / "ckpt/open_clip_pytorch_model.bin"}
+#_MODEL_CKPT_PATHS = {'BiomedCLIP-PubMedBERT-ViT-B-16': Path(__file__).parent / "ckpt/open_clip_pytorch_model.bin"}
+_MODEL_CKPT_PATHS = {'BiomedCLIP-PubMedBERT_256-vit_base_patch16_224': Path("/kaggle/input/biomedclip/pytorch/default/1/open_clip_pytorch_model.bin")}
+
+#path of model 
+#/kaggle/input/biomedclip/pytorch/default/1/open_clip_pytorch_model.bin
+
 
 
 def _natural_key(string_):
@@ -103,15 +111,17 @@ def create_model(
     if isinstance(device, str):
         device = torch.device(device)
 
-    if pretrained and pretrained.lower() == 'openai':
-        logging.info(f'Loading pretrained {model_name} from OpenAI.')
+    if pretrained and pretrained.lower() == 'biomedclip':
+        logging.info(f'Loading pretrained {model_name} from Microsoft.')
         model_cfg = model_cfg or get_model_config(model_name)
-        print(model_cfg['vision_cfg'])
+        
+      
         if model_cfg['vision_cfg']['image_size'] != img_size:
             model_cfg['vision_cfg']['image_size'] = img_size
+            
             cast_dtype = get_cast_dtype(precision)
 
-            model_pre = load_openai_model(
+            model_pre = load_biomedclip_model(
                 name = _MODEL_CKPT_PATHS[model_name],
                 precision=precision,
                 device=device,
@@ -144,12 +154,13 @@ def create_model(
             if jit:
                 model = torch.jit.script(model)
         else:
-            model = load_openai_model(
-                model_name,
+            checkpoint_path = _MODEL_CKPT_PATHS[model_name]
+            model = load_biomedclip_model(
+                name=str(checkpoint_path),
                 precision=precision,
                 device=device,
                 jit=jit,
-                cache_dir=cache_dir,
+                cache_dir=None,
             )
 
             # to always output dict even if it is clip
