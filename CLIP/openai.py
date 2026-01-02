@@ -9,8 +9,8 @@ from typing import Optional, Union
 
 import torch
 
-from .model import build_model_from_biomedclip_state_dict, get_cast_dtype
-
+#from .model import build_model_from_biomedclip_state_dict, get_cast_dtype
+from .model import build_model_from_openai_state_dict
 from .model import convert_weights_to_lp  # optional
 from .remap import remap_biomedclip_to_openai_keys
 
@@ -75,11 +75,12 @@ def load_biomedclip_model(
     
     if not jit:
         cast_dtype = get_cast_dtype(precision)
-
+build_model_from_openai_state_dict
         # Build BiomedCLIP model from state_dict
         try:
             print("building biomedclip from state dict in openai.py")
-            model = build_model_from_biomedclip_state_dict(
+            #model = build_model_from_biomedclip_state_dict(
+            model = build_model_from_openai_state_dict(
                 openai_style_state,
                 cast_dtype=cast_dtype,
             )
