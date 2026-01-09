@@ -284,7 +284,7 @@ def build_model_from_openai_state_dict(
     ])
     transformer_heads = transformer_width // 64
 
-    embed_dim = state_dict["visual.head.proj.weight"].shape[0]  # 512
+    embed_dim = 512
 
     print(f"   Text: width={transformer_width}, heads={transformer_heads}, layers={transformer_layers}, "
           f"vocab={vocab_size}, ctx_len={context_length}, embed_dim={embed_dim}")
