@@ -270,14 +270,26 @@ def build_model_from_openai_state_dict(
         vision_patch_size = None
         assert output_width ** 2 + 1 == state_dict["visual.attnpool.positional_embedding"].shape[0]
         image_size = output_width * 32
+        print(f"counts: {counts}, vision_layers: {vision_layers}, vision_width: {vision_width}, output_width: {output_width}, vision_patch_size: {vision_patch_size}, image_size: {image_size}")
 
-    embed_dim = state_dict["text_projection"].shape[1]
-    context_length = state_dict["positional_embedding"].shape[0]
-    vocab_size = state_dict["token_embedding.weight"].shape[0]
-    transformer_width = state_dict["ln_final.weight"].shape[0]
+
+    print("Parsing text tower (PubMedBERT)...")
+    transformer_width = state_dict["text.transformer.embeddings.word_embeddings.weight"].shape[1]
+    vocab_size = state_dict["text.transformer.embeddings.word_embeddings.weight"].shape[0]
+    context_length = state_dict["text.transformer.embeddings.position_embeddings.weight"].shape[0]
+
+    transformer_layers = len([
+        k for k in state_dict.keys()
+        if k.startswith("text.transformer.encoder.layer.") and k.endswith(".attention.self.query.weight")
+    ])
     transformer_heads = transformer_width // 64
-    transformer_layers = len(set(k.split(".")[2] for k in state_dict if k.startswith(f"transformer.resblocks")))
 
+    embed_dim = state_dict["visual.head.proj.weight"].shape[0]  # 512
+
+    print(f"   Text: width={transformer_width}, heads={transformer_heads}, layers={transformer_layers}, "
+          f"vocab={vocab_size}, ctx_len={context_length}, embed_dim={embed_dim}")
+
+    # === Configs ===
     vision_cfg = CLIPVisionCfg(
         layers=vision_layers,
         width=vision_width,
